@@ -200,9 +200,25 @@ class DBMigrationApp:
 
             # Extract view structure and data
             cursor = source_conn.cursor()
-            cursor.execute(f"PRAGMA table_info({view_name})")
-            columns = cursor.fetchall()
-            column_definitions = ", ".join([f"{col[1]} {col[2]}" for col in columns])
+            sgbd = self.source_sgbd.get()
+
+            if sgbd == "SQLite":
+                cursor.execute(f"PRAGMA table_info({view_name})")
+                columns = cursor.fetchall()
+                column_definitions = ", ".join([f"{col[1]} {col[2]}" for col in columns])
+                cursor.execute(f"SELECT * FROM {view_name}")
+            elif sgbd == "PostgreSQL":
+                cursor.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{view_name}'")
+                columns = cursor.fetchall()
+                column_definitions = ", ".join([f"{col[0]} {col[1]}" for col in columns])
+                cursor.execute(f"SELECT * FROM {view_name}")
+            elif sgbd == "MySQL":
+                cursor.execute(f"DESCRIBE {view_name}")
+                columns = cursor.fetchall()
+                column_definitions = ", ".join([f"{col[0]} {col[1]}" for col in columns])
+                cursor.execute(f"SELECT * FROM {view_name}")
+
+            rows = cursor.fetchall()
 
             # Create table in target database
             target_cursor = target_conn.cursor()
@@ -210,9 +226,7 @@ class DBMigrationApp:
             target_cursor.execute(f"CREATE TABLE {target_table_name} ({column_definitions})")
 
             # Copy data from view to table
-            cursor.execute(f"SELECT * FROM {view_name}")
-            rows = cursor.fetchall()
-            placeholders = ", ".join(["?" for _ in columns])
+            placeholders = ", ".join(["%s" for _ in columns])
             target_cursor.executemany(f"INSERT INTO {target_table_name} VALUES ({placeholders})", rows)
 
             target_conn.commit()
