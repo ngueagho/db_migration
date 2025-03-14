@@ -17,6 +17,7 @@ class DBMigrationApp:
         self.source_details = {}
         self.target_details = {}
         self.view_name = tk.StringVar()
+        self.source_config = {}
 
         # Layout
         self.create_widgets()
@@ -28,12 +29,16 @@ class DBMigrationApp:
 
         ttk.Label(source_frame, text="SGBD:").grid(row=0, column=0, sticky=tk.W)
         sgbd_options = ["SQLite", "PostgreSQL", "MySQL"]
-        ttk.OptionMenu(source_frame, self.source_sgbd, sgbd_options[0], *sgbd_options).grid(row=0, column=1, sticky=tk.W)
+        ttk.OptionMenu(source_frame, self.source_sgbd, sgbd_options[0], *sgbd_options, command=self.show_source_fields).grid(row=0, column=1, sticky=tk.W)
 
-        ttk.Label(source_frame, text="View Name:").grid(row=1, column=0, sticky=tk.W)
-        ttk.Entry(source_frame, textvariable=self.view_name, width=30).grid(row=1, column=1, sticky=tk.W)
+        self.source_fields_frame = ttk.Frame(self.root)
+        self.source_fields_frame.pack(fill=tk.X, padx=20, pady=10)
 
-        ttk.Button(source_frame, text="Connect", command=self.connect_source).grid(row=2, column=0, columnspan=2, pady=10)
+        ttk.Label(self.source_fields_frame, text="View Name:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Entry(self.source_fields_frame, textvariable=self.view_name, width=30).grid(row=0, column=1, sticky=tk.W)
+
+        self.connect_button = ttk.Button(self.source_fields_frame, text="Test Connectivity", command=self.connect_source)
+        self.connect_button.grid(row=1, column=0, columnspan=2, pady=10)
 
         ttk.Label(self.root, text="Target Database", font=("Arial", 14)).pack(pady=10)
         target_frame = ttk.Frame(self.root)
@@ -48,6 +53,23 @@ class DBMigrationApp:
 
         self.log_text = tk.Text(self.root, wrap=tk.WORD, height=10)
         self.log_text.pack(fill=tk.BOTH, padx=20, pady=10)
+
+    def show_source_fields(self, sgbd):
+        for widget in self.source_fields_frame.winfo_children():
+            widget.destroy()
+
+        ttk.Label(self.source_fields_frame, text="View Name:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Entry(self.source_fields_frame, textvariable=self.view_name, width=30).grid(row=0, column=1, sticky=tk.W)
+
+        if sgbd != "SQLite":
+            fields = ["Host", "Port", "Database Name", "Username", "Password"]
+            for i, field in enumerate(fields):
+                ttk.Label(self.source_fields_frame, text=f"{field}:").grid(row=i+1, column=0, sticky=tk.W)
+                self.source_config[field.lower().replace(" ", "_")] = tk.StringVar()
+                ttk.Entry(self.source_fields_frame, textvariable=self.source_config[field.lower().replace(" ", "_")], width=30, show="*" if field == "Password" else None).grid(row=i+1, column=1, sticky=tk.W)
+
+        self.connect_button = ttk.Button(self.source_fields_frame, text="Test Connectivity", command=self.connect_source)
+        self.connect_button.grid(row=len(fields)+1 if sgbd != "SQLite" else 1, column=0, columnspan=2, pady=10)
 
     def log(self, message):
         self.log_text.insert(tk.END, message + "\n")
@@ -71,21 +93,21 @@ class DBMigrationApp:
                     self.log(f"Connected to SQLite database at {file_path}.")
             elif sgbd == "PostgreSQL":
                 conn = psycopg2.connect(
-                    dbname=input("Enter database name: "),
-                    user=input("Enter username: "),
-                    password=input("Enter password: "),
-                    host=input("Enter host: "),
-                    port=input("Enter port: ")
+                    dbname=self.source_config["database_name"].get(),
+                    user=self.source_config["username"].get(),
+                    password=self.source_config["password"].get(),
+                    host=self.source_config["host"].get(),
+                    port=self.source_config["port"].get()
                 )
                 self.source_details = {"connection": conn, "view_name": view_name}
                 self.log("Connected to PostgreSQL database.")
             elif sgbd == "MySQL":
                 conn = mysql.connector.connect(
-                    database=input("Enter database name: "),
-                    user=input("Enter username: "),
-                    password=input("Enter password: "),
-                    host=input("Enter host: "),
-                    port=input("Enter port: ")
+                    database=self.source_config["database_name"].get(),
+                    user=self.source_config["username"].get(),
+                    password=self.source_config["password"].get(),
+                    host=self.source_config["host"].get(),
+                    port=self.source_config["port"].get()
                 )
                 self.source_details = {"connection": conn, "view_name": view_name}
                 self.log("Connected to MySQL database.")
