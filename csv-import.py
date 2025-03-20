@@ -1,6 +1,7 @@
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 # Couleurs et styles
 theme_bg = "#2C3E50"
@@ -8,8 +9,9 @@ theme_fg = "#ECF0F1"
 theme_button_bg = "#3498DB"
 theme_button_fg = "#FFFFFF"
 
-def importer_et_afficher():
-    fichier = filedialog.askopenfilename(filetypes=[("Fichiers CSV", "*.csv"), ("Fichiers Excel", "*.xlsx")])
+def importer_et_afficher(fichier=None):
+    if not fichier:
+        fichier = filedialog.askopenfilename(filetypes=[("Fichiers CSV", "*.csv"), ("Fichiers Excel", "*.xlsx")])
     if not fichier:
         return
     
@@ -22,17 +24,21 @@ def importer_et_afficher():
             messagebox.showerror("Erreur", "Format de fichier non supporté")
             return
         
-        # Afficher un aperçu des données
+        # Afficher un aperçu des 100 premières lignes des données
         apercu_text.delete("1.0", tk.END)
-        apercu_text.insert(tk.END, df.head().to_string())
+        apercu_text.insert(tk.END, df.head(100).to_string())
         
         # Afficher le nombre total d'enregistrements
         count_label.config(text=f"Nombre total d'enregistrements : {len(df)}")
     except Exception as e:
         messagebox.showerror("Erreur", f"Une erreur est survenue : {str(e)}")
 
-# Interface graphique avec Tkinter
-app = tk.Tk()
+def drop(event):
+    fichier = event.data.strip().replace("{", "").replace("}", "")  # Nettoyer les { } ajoutés par DND_FILES
+    importer_et_afficher(fichier)
+
+# Interface graphique avec TkinterDnD
+app = TkinterDnD.Tk()  # Utiliser TkinterDnD au lieu de Tk
 app.title("Importateur de Fichier Excel/CSV")
 app.geometry("800x500")
 app.configure(bg=theme_bg)
@@ -49,5 +55,9 @@ count_label.pack(pady=5)
 
 apercu_text = tk.Text(frame, height=10, width=80, font=("Courier", 10), bg="#34495E", fg=theme_fg)
 apercu_text.pack(pady=10, fill='both', expand=True)
+
+# Ajouter le support du drag and drop
+apercu_text.drop_target_register(DND_FILES)
+apercu_text.dnd_bind("<<Drop>>", drop)
 
 app.mainloop()
