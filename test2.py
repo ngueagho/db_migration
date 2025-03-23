@@ -63,6 +63,12 @@ class DataMigrationApp(QMainWindow):
         self.db_connected = False
         self.column_mapping = {}
 
+        # Disable tabs until prerequisites are met
+        self.tabs.setTabEnabled(2, False)
+        self.tabs.setTabEnabled(3, False)
+        self.tabs.setTabEnabled(4, False)
+        self.tabs.setTabEnabled(5, False)
+
     def create_import_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
@@ -87,6 +93,7 @@ class DataMigrationApp(QMainWindow):
         if not file_path:
             options = QFileDialog.Options()
             file_path, _ = QFileDialog.getOpenFileName(self, "Open CSV File", "", "CSV Files (*.csv);;All Files (*)", options=options)
+            # mmm
 
         if file_path:
             self.imported_data = []
@@ -100,6 +107,13 @@ class DataMigrationApp(QMainWindow):
 
                 self.import_status_label.setText(f"Imported: {file_path}")
                 self.populate_table(self.file_table, self.imported_data)
+                # mmm
+
+
+
+                # Enable the "Tables" tab if the connection is also validated
+                if self.db_connected:
+                    self.tabs.setTabEnabled(2, True)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to read the file: {str(e)}")
 
@@ -169,8 +183,13 @@ class DataMigrationApp(QMainWindow):
             self.db_connected = True
             self.connect_status_label.setText("Connected Successfully")
             QMessageBox.information(self, "Connection", "Database connected successfully.")
+
             if connection:
                 connection.close()
+
+            # Enable the "Tables" tab if CSV is also imported
+            if self.imported_data:
+                self.tabs.setTabEnabled(2, True)
         except Exception as e:
             self.db_connected = False
             self.connect_status_label.setText("Connection Failed")
@@ -186,25 +205,55 @@ class DataMigrationApp(QMainWindow):
 
         # Database table
         self.db_table_combo = QComboBox()
-        self.db_table_combo.addItems(["Table1", "Table2", "Table3"])
         self.db_table_combo.currentTextChanged.connect(self.load_db_table)
         self.db_table_view = QTableWidget()
         self.db_table_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        layout.addWidget(QLabel("File Table:"))
+        
+
+
+
+        layout.addWidget(QLabel("Table importée (CSV):"))
         layout.addWidget(self.file_table_view)
-        layout.addWidget(QLabel("Database Table:"))
+        layout.addWidget(QLabel("Table sélectionnée (Base de données):"))
         layout.addWidget(self.db_table_combo)
         layout.addWidget(self.db_table_view)
         tab.setLayout(layout)
 
         return tab
 
+    
+    
+    
+
+
+
+    # def load_db_table(self, table_name):
+    #     if self.db_connected:
+    #         try:
+    #             # Placeholder for database query logic
+
+
+    #             data = [[f"Row{i+1}Col{j+1}" for j in range(5)] for i in range(10)]
+    #             self.populate_table(self.db_table_view, [["ColA", "ColB", "ColC", "ColD", "ColE"]] + data)
+    #         except Exception as e:
+    #             QMessageBox.critical(self, "Error", f"Failed to load table: {str(e)}")
+
+    
     def load_db_table(self, table_name):
-        if self.db_connected:
-            # Placeholder for database query logic
-            data = [[f"Row{i+1}Col{j+1}" for j in range(5)] for i in range(10)]
-            self.populate_table(self.db_table_view, [["ColA", "ColB", "ColC", "ColD", "ColE"]] + data)
+        """Retrieve and display table names in the dropdown menu."""
+        if self.connection:
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute("SHOW TABLES;")
+                self.tables = [row[0] for row in cursor.fetchall()]
+                self.combobox["values"] = self.tables
+                self.text.delete("1.0", END)
+                self.text.insert(END, f"Tables disponibles : {', '.join(self.tables)}\n")
+            except mysql.connector.Error as e:
+                self.text.insert(END, f"Erreur lors de la récupération des tables : {e}\n")
+
+
 
     def create_mapping_tab(self):
         tab = QWidget()
@@ -213,10 +262,13 @@ class DataMigrationApp(QMainWindow):
         # Mapping widgets
         self.mapping_layout = QVBoxLayout()
         self.mapping_widgets = []
+
+
         for i in range(5):
             mapping_row = QHBoxLayout()
             file_col = QLabel(f"File Col {i+1}")
             db_col_combo = QComboBox()
+
             db_col_combo.addItems(["ColA", "ColB", "ColC", "ColD", "ColE"])
             mapping_row.addWidget(file_col)
             mapping_row.addWidget(db_col_combo)
@@ -302,8 +354,3 @@ if __name__ == "__main__":
     window = DataMigrationApp()
     window.show()
     sys.exit(app.exec_())
-
-
-
-
-
